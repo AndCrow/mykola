@@ -3,6 +3,8 @@ import {TagReference} from "./tags.service";
 export class TagsController {
     static $inject = ['$scope', 'TribeTagsService', 'TribeTagsConfigurer'];
 
+    allLoaded: boolean = false;
+
     constructor(private $scope, private tagService, private tagConfigurer) {
         let _ = require('underscore');
 
@@ -24,6 +26,7 @@ export class TagsController {
             if (query !== $scope.$$pagingQuery) {
                 $scope.$$pagingQuery = query;
                 $scope.$$pagingState = undefined;
+                this.allLoaded = false;
             }
 
             // we started our request (busy)
@@ -35,8 +38,11 @@ export class TagsController {
                 "size": 20
             };
 
-            tagService.findTags(params).then(
-                (data) => {
+            tagService.findTags(params).then((data) => {
+                // total without excluded (filtred)
+                const filtredTotal = data.total - ($scope.excludedNumber ? $scope.excludedNumber : 0);
+                // change collection if data changed
+                if (!this.allLoaded || $scope.$$total !== filtredTotal) {
                     let tagsFromServer = data.items.map(t => {
                         return new TagReference(t.id, t.name, {});
                     });
@@ -58,11 +64,16 @@ export class TagsController {
 
                     $scope.$$total = data.total;
 
-                    // prerequisite to pagination
-                    $scope.$$pagingState = data.pagingState;
+                    // check if we already loaded all
+                    this.allLoaded = this.isAllLoaded($scope.availableTags, data.total);
+                    // count total for footer
+                    $scope.$$total = filtredTotal;
+                    // pagination
+                    $scope.$$pagingState = data.pagingState || undefined;
+                    // finish request
                     $scope.$$pagingBusy = false;
                 }
-            );
+            });
         }
 
         $scope.refreshDuplicateValidation = (selected) => {
@@ -84,5 +95,13 @@ export class TagsController {
         // as ui-select use angular.equals we have to add real field
         tag['uniqueField'] = Math.random() * Math.random();
         return tag;
+    }
+
+    private isAllLoaded(items: Array<any>, total: number): boolean {
+      const loadedTags: number = items.reduce( (acc, item) => {
+        return item['isTag'] ? acc : acc + 1;
+      }, 0)
+
+      return total === loadedTags;
     }
 }

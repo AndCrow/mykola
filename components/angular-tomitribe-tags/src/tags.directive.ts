@@ -22,9 +22,6 @@ export class TagsDirective {
     link: ng.IDirectiveLinkFn = (scope: any, el: any, attrs: any, ctrl: any): void => {
         scope.form = ctrl;
         scope.fieldName = scope.fieldName || 'tags';
-
-        if(!scope.position) {
-            scope.position = 'auto';
-        }
+        scope.position = attrs.position || 'auto';
     };
 }
